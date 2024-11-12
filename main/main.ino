@@ -24,8 +24,12 @@ bool isMoving = false;
 #define leftmostLineSensor 
 #define leftMiddleLineSensor 
 #define rightMiddleLineSensor 
-#define rightmostLineSensor 
+#define rightmostLineSensor
 
+/*  ----    Ultrasonic Sensor    ----    */
+#define UltrasonicSensor
+#define MAX_RANG (520)
+#define ADC_SOLUTION (1023.0)
 /*  ----    LEDs    ----    */
 //Currently defined with arbitary pins
 #define redLED 
@@ -55,6 +59,8 @@ void loop() {
 }
 
 /*  ----    Initialisation Functions    ----    */
+
+
 void initialise_leds() {
     pinMode(redLED, OUTPUT);  // Set redLED pin as output
     digitalWrite(redLED, LOW); // Turn off the LED initially
@@ -122,6 +128,13 @@ void move_forward_until_separation() {
             Serial.println("Split detected - stopping.");
             break;  // Exit the loop when a split is detected
         }
+        else if(detect_right()) {
+          turn_right()
+        }
+
+        else if(detect_left())) {
+          turn_left()
+        }
 
         delay(500);
     }
@@ -160,9 +173,39 @@ void turn_right() {
   leftMotor->run(RELEASE);
   rightMotor->run(RELEASE);
   
-
-
 }
+
+void turn_left() {
+
+  leftMotor->run(RELEASE);  //Stop Motors
+  rightMotor->run(RELEASE);
+
+  leftMotor->setSpeed(movementSpeed);
+  rightMotor->setSpeed(movementSpeed);
+
+  leftMotor->run(BACKWARD);
+  rightMotor->run(BACKWARD);
+
+  delay(100);
+
+  leftMotor->run(RELEASE); 
+  rightMotor->run(RELEASE);
+
+  leftMotor->setSpeed(movementSpeed);
+  rightMotor->setSpeed(movementSpeed);
+
+  leftMotor->run(BACKWARD);
+  rightMotor->run(FORWARD);
+
+  while (digitalRead(rightmostLineSensor) == HIGH){
+    delay(10)
+  }
+
+  leftMotor->run(RELEASE);
+  rightMotor->run(RELEASE);
+  
+}
+
 bool detect_split() {
     int leftOuterReading = digitalRead(leftmostLineSensor);
     int rightOuterReading = digitalRead(rightmostLineSensor);
@@ -185,5 +228,15 @@ bool detect_right() {
   return false; //No need to to turn right
 }
 
+bool detect_left() {
+  int leftOuterReading = digitalRead(leftmostLineSensor);
+  int rightOuterReading = digitalRead(rightmostLineSensor);
+
+  if (leftOuterReading == LOW && rightOuterReading == HIGH) {
+      return true; //Need to turn right
+  }
+
+  return false; //No need to to turn right
+}
 
 
