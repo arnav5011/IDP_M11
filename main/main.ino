@@ -108,7 +108,7 @@ void toggle_LED(int pin) {
     digitalWrite(pin, !state);     // Toggle the state
 }
 
-void move_forward_until_split() {
+void move_forward_until_separation() {
     Serial.println("Moving forward.");
 
     leftMotor->setSpeed(movementSpeed);
@@ -131,7 +131,38 @@ void move_forward_until_split() {
     rightMotor->run(RELEASE);
     Serial.println("Vehicle stopped.");
 }
+void turn_right() {
 
+  leftMotor->run(RELEASE);  //Stop Motors
+  rightMotor->run(RELEASE);
+
+  leftMotor->setSpeed(movementSpeed);
+  rightMotor->setSpeed(movementSpeed);
+
+  leftMotor->run(BACKWARD);
+  rightMotor->run(BACKWARD);
+
+  delay(100);
+
+  leftMotor->run(RELEASE); 
+  rightMotor->run(RELEASE);
+
+  leftMotor->setSpeed(movementSpeed);
+  rightMotor->setSpeed(movementSpeed);
+
+  leftMotor->run(FORWARD);
+  rightMotor->run(BACKWARD);
+
+  while (digitalRead(leftmostLineSensor) == HIGH){
+    delay(10)
+  }
+
+  leftMotor->run(RELEASE);
+  rightMotor->run(RELEASE);
+  
+
+
+}
 bool detect_split() {
     int leftOuterReading = digitalRead(leftmostLineSensor);
     int rightOuterReading = digitalRead(rightmostLineSensor);
@@ -142,4 +173,17 @@ bool detect_split() {
 
     return false; //No split detected
 }
+
+bool detect_right() {
+  int leftOuterReading = digitalRead(leftmostLineSensor);
+  int rightOuterReading = digitalRead(rightmostLineSensor);
+
+  if (leftOuterReading == HIGH && rightOuterReading == LOW) {
+      return true; //Need to turn right
+  }
+
+  return false; //No need to to turn right
+}
+
+
 
