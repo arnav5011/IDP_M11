@@ -7,8 +7,8 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 // Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 
 // Select which 'port' M1, M2, M3 or M4. In this case, M1
-Adafruit_DCMotor *myMotor = AFMS.getMotor(1);
-Adafruit_DCMotor *myMotor2 = AFMS.getMotor(2);
+Adafruit_DCMotor *myMotor = AFMS.getMotor(2);
+Adafruit_DCMotor *myMotor2 = AFMS.getMotor(3);
 // You can also make another motor on port M2
 //Adafruit_DCMotor *myOtherMotor = AFMS.getMotor(2);
 
@@ -17,10 +17,10 @@ Adafruit_DCMotor *myMotor2 = AFMS.getMotor(2);
 
 void setup() {
 
-  int extreme_left_pin = 0;
-  int left_pin = 1;
-  int right_pin = 2;
-  int extreme_right_pin = 3;
+  int extreme_left_pin = 2;
+  int left_pin = 3;
+  int right_pin = 4;
+  int extreme_right_pin = 5;
   Serial.begin(9600);           // set up Serial library at 9600 bps
   Serial.println("Adafruit Motorshield v2 - DC Motor test!");
 
@@ -47,10 +47,10 @@ void setup() {
 }
 
 void loop() {
-  int extreme_left = digitalRead(0);
-  int left = digitalRead(1);
-  int right = digitalRead(2);
-  int extreme_right = digitalRead(3);
+  int extreme_left = 0;
+  int left = digitalRead(3);
+  int right = digitalRead(4);
+  int extreme_right = digitalRead(5);
   Serial.print(extreme_left);
   Serial.print(left);
   Serial.print(right);
@@ -62,8 +62,8 @@ void loop() {
   }
   else {
     
-    //myMotor->run(RELEASE);
-    //myMotor2->run(RELEASE);
+    myMotor->run(RELEASE);
+    myMotor2->run(RELEASE);
 
   }
 
