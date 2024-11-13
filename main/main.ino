@@ -129,11 +129,11 @@ void move_forward_until_separation() {
             break;  // Exit the loop when a split is detected
         }
         else if(detect_right()) {
-          turn_right()
+          turn_right();
         }
 
         else if(detect_left())) {
-          turn_left()
+          turn_left();
         }
 
         delay(500);
@@ -167,7 +167,7 @@ void turn_right() {
   rightMotor->run(BACKWARD);
 
   while (digitalRead(leftmostLineSensor) == HIGH){
-    delay(10)
+    delay(10);
   }
 
   leftMotor->run(RELEASE);
