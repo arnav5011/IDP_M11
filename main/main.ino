@@ -6,7 +6,7 @@
 /*  ----    TIMING FOR INTERRUPTS    ----    */
 #include <TimerOne.h>
 
-#define ledInterval 250000
+#define ledInterval 250
 
 /*  ----    ADAFRUIT MOTORSHIELD    ----    */
 #include <Adafruit_MotorShield.h>
