@@ -31,10 +31,32 @@ bool isMoving = false;
 #define MAX_RANG (520)
 #define ADC_SOLUTION (1023.0)
 /*  ----    LEDs    ----    */
-//Currently defined with arbitary pins
 #define redLED 
 #define greenLED 
-#define blueLED 
+#define blueLED
+
+/*  ----    Location    ----    */
+#include <vector>
+
+int clearNodeMap[6][5] = {
+    { 1, 0, 1, 1, 1},
+    { 0,-1, 1,-1, 0},
+    { 1, 0, 1, 0, 1},
+    { 0,-1,-1,-1, 0},
+    { 1, 0, 1, 0, 1},
+    { 0,-1, 0,-1, 0}
+};
+
+int boxPlacementMap[6][5] = {
+    { 0, 0, 0, 0, 0},
+    { 0, 0, 0, 0, 0},
+    { 0, 0, 1, 1, 0},
+    { 0, 1, 0, 1, 0},
+    { 0, 0, 1, 1, 0},
+    { 0, 0, 0, 0, 0}
+};
+
+std::vector<int> instructions;
 
 /*                  ----    CODE    ----                */
 /*  ----    Core Code    ----    */
@@ -239,4 +261,29 @@ bool detect_left() {
   return false; //No need to to turn right
 }
 
+//Should take in the current position, map of current box positions, and free-path map
+void find_next_path() {
+
+}
+
+//Once the path is found, the instruction list should be created -- I'm thinking smth along the lines of 1, for left -1 for right, and 0 for EOS
+void create_instructions() {
+
+}
+
+//This should then move the robot to the penultimate node in the sequence
+//I say penultimate because the box may be 'on' the node so special behaviour might be needed
+void perform_instructions() {
+
+}
+
+//Enact a left turn
+void turn_left() {
+
+}
+
+//Enact a right turn
+void turn_right() {
+
+}
 
