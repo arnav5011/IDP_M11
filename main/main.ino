@@ -17,14 +17,14 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *leftMotor = AFMS.getMotor();
 Adafruit_DCMotor *rightMotor = AFMS.getMotor();
 
-int movementSpeed = 150;
+int movementSpeed = 150; // Speed of the vehicle in motion
 bool isMoving = false;
 
 /*  ----    Sensors    ----    */
-#define leftmostLineSensor 
-#define leftMiddleLineSensor 
-#define rightMiddleLineSensor 
-#define rightmostLineSensor
+#define leftmostLineSensor 2
+#define leftMiddleLineSensor 3 
+#define rightMiddleLineSensor 4
+#define rightmostLineSensor 5
 
 /*  ----    Ultrasonic Sensor    ----    */
 #define UltrasonicSensor
@@ -69,7 +69,7 @@ void setup() {
     //setup motor
     initialise_motor();
 
-    //setup line censors
+    //setup line sensors
     initialise_line_sensor();
 
     //setup up timer interrupt
