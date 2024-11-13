@@ -154,7 +154,7 @@ void move_forward_until_separation() {
           turn_right();
         }
 
-        else if(detect_left())) {
+        else if(detect_left()) {
           turn_left();
         }
 
@@ -220,7 +220,7 @@ void turn_left() {
   rightMotor->run(FORWARD);
 
   while (digitalRead(rightmostLineSensor) == HIGH){
-    delay(10)
+    delay(10);
   }
 
   leftMotor->run(RELEASE);
