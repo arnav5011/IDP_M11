@@ -47,7 +47,7 @@ void setup() {
 }
 
 void loop() {
-  int extreme_left = 0;
+  int extreme_left = digitalRead(2);
   int left = digitalRead(3);
   int right = digitalRead(4);
   int extreme_right = digitalRead(5);

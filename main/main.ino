@@ -38,7 +38,7 @@ bool isMoving = false;
 /*  ----    Location    ----    */
 #include <vector>
 
-int clearNodeMap[6][5] = {
+"""int clearNodeMap[6][5] = {
     { 1, 0, 1, 1, 1},
     { 0,-1, 1,-1, 0},
     { 1, 0, 1, 0, 1},
@@ -57,7 +57,7 @@ int boxPlacementMap[6][5] = {
 };
 
 std::vector<int> instructions;
-
+"""
 /*                  ----    CODE    ----                */
 /*  ----    Core Code    ----    */
 void setup() {
@@ -77,7 +77,6 @@ void setup() {
 }
 
 void loop() {
-
 }
 
 /*  ----    Initialisation Functions    ----    */
@@ -146,6 +145,8 @@ void move_forward_until_separation() {
     isMoving = true;
 
     while(true) {
+
+
         if (detect_split()) {
             Serial.println("Split detected - stopping.");
             break;  // Exit the loop when a split is detected
@@ -167,24 +168,7 @@ void move_forward_until_separation() {
     Serial.println("Vehicle stopped.");
 }
 void turn_right() {
-
-  leftMotor->run(RELEASE);  //Stop Motors
-  rightMotor->run(RELEASE);
-
-  leftMotor->setSpeed(movementSpeed);
-  rightMotor->setSpeed(movementSpeed);
-
-  leftMotor->run(BACKWARD);
-  rightMotor->run(BACKWARD);
-
-  delay(100);
-
-  leftMotor->run(RELEASE); 
-  rightMotor->run(RELEASE);
-
-  leftMotor->setSpeed(movementSpeed);
-  rightMotor->setSpeed(movementSpeed);
-
+  Serial.println("Turning Right")
   leftMotor->run(FORWARD);
   rightMotor->run(BACKWARD);
 
@@ -192,30 +176,13 @@ void turn_right() {
     delay(10);
   }
 
-  leftMotor->run(RELEASE);
-  rightMotor->run(RELEASE);
+  leftMotor->run(FORWARD);
+  rightMotor->run(FORWARD);
   
 }
 
 void turn_left() {
-
-  leftMotor->run(RELEASE);  //Stop Motors
-  rightMotor->run(RELEASE);
-
-  leftMotor->setSpeed(movementSpeed);
-  rightMotor->setSpeed(movementSpeed);
-
-  leftMotor->run(BACKWARD);
-  rightMotor->run(BACKWARD);
-
-  delay(100);
-
-  leftMotor->run(RELEASE); 
-  rightMotor->run(RELEASE);
-
-  leftMotor->setSpeed(movementSpeed);
-  rightMotor->setSpeed(movementSpeed);
-
+  Serial.println("Turning Left")
   leftMotor->run(BACKWARD);
   rightMotor->run(FORWARD);
 
@@ -283,7 +250,10 @@ void turn_left() {
 }
 
 //Enact a right turn
-void turn_right() {
+void turn_right() 
+}
+
+bool wobble_right() {
 
 }
 
