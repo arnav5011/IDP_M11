@@ -21,6 +21,7 @@ Adafruit_DCMotor *Motor_Right = AFMS.getMotor(right_motor_pin);
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
+  Serial.println("Setup has begun");
   Motor_Left->setSpeed(255);
   Motor_Right->setSpeed(255);
   pinMode(extreme_right_pin, INPUT);
@@ -32,6 +33,7 @@ void setup() {
 }
 
 void loop() {
+  Serial.println("Loop has begun");
   int extreme_right = digitalRead(extreme_right_pin);
   int right = digitalRead(right_pin);
   int left = digitalRead(left_pin);
@@ -39,7 +41,7 @@ void loop() {
   Serial.print(extreme_left);
   Serial.print(left);
   Serial.print(right);
-  Serial.print(extreme_right);
+  Serial.println(extreme_right);
   while(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0){
     Serial.println("Moving Forward");
     extreme_right = digitalRead(extreme_right_pin);
