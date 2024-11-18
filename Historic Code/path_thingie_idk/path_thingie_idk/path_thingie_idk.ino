@@ -25,6 +25,9 @@ void setup() {
   Serial.begin(9600);
   Motor_Left->setSpeed(255);
   Motor_Right->setSpeed(255);
+  Motor_Left->run(RELEASE);
+  Motor_Right->run(RELEASE);
+  
   pinMode(extreme_right_pin, INPUT);
   pinMode(right_pin, INPUT);
   pinMode(left_pin, INPUT);
@@ -104,20 +107,22 @@ void mov_forward_until_split_or_turn(){
 
 void turn_right(){
   Motor_Right->run(BACKWARD);
-    while(extreme_right != 0 && right != 1 && left != 1 && extreme_left != 0){
+    """while(extreme_right != 0 && right != 1 && left != 1 && extreme_left != 0){
       delay(10);
       extreme_right = digitalRead(extreme_right_pin);
       right = digitalRead(right_pin);
       left = digitalRead(left_pin);
       extreme_left = digitalRead(extreme_left_pin);
+    }"""
 }
 
 void turn_left(){
   Motor_Right->run(BACKWARD);
-    while(extreme_right != 0 && right != 1 && left != 1 && extreme_left != 0){
+    """while(extreme_right != 0 && right != 1 && left != 1 && extreme_left != 0){
       delay(10);
       extreme_right = digitalRead(extreme_right_pin);
       right = digitalRead(right_pin);
       left = digitalRead(left_pin);
       extreme_left = digitalRead(extreme_left_pin);
+    }"""
 }
