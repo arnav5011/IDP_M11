@@ -38,7 +38,8 @@ bool isMoving = false;
 /*  ----    Location    ----    */
 #include <vector>
 
-"""int clearNodeMap[6][5] = {
+"""
+int clearNodeMap[6][5] = {
     { 1, 0, 1, 1, 1},
     { 0,-1, 1,-1, 0},
     { 1, 0, 1, 0, 1},
