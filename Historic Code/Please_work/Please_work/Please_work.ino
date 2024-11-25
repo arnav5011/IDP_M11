@@ -17,6 +17,14 @@ int count_split = 0; //Checks Split Count
 int right_count = 0; //Checks number of juncitons where right turn could be taken
 int left_count = 0; //checks number of junctions where left turn could be taken 
 
+unsigned long debounceDelay = 80; // 100 ms debounce delay
+unsigned long rightbounceDelay = 90; //
+unsigned long leftbounceDelay = 90;
+unsigned long rightDebounceTime = 0; // Last time the right condition was detected
+unsigned long leftDebounceTime = 0;  // Last time the left condition was detected
+unsigned long splitDebounceTime = 0; // Last time the split condition was detected
+
+
 Adafruit_DCMotor *Motor_Left = AFMS.getMotor(left_motor_pin);
 Adafruit_DCMotor *Motor_Right = AFMS.getMotor(right_motor_pin);
 
@@ -51,6 +59,7 @@ void setup() {
 
 void loop() {
 move();
+
 }
 
 void move(){
@@ -75,6 +84,60 @@ void move(){
   else if(extreme_right == 1 && right == 1 && left == 0 && extreme_left == 0){shift_right(extreme_right, right, left, extreme_left);}      
   else if(extreme_right == 1 && right == 0 && left == 0 && extreme_left == 0){shift_right(extreme_right, right, left, extreme_left);} //Off coursed to rightside so turn to left
   
+  if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible right turn
+    if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+      rightDebounceTime = millis(); // Update debounce time
+      right_count++;
+      Serial.print("Right Count ");
+      Serial.println(right_count);
+      if (right_count == 2 || right_count == 3 || right_count == 4) {
+        turn_right(extreme_right, right, left, extreme_left);
+      }
+    }
+  }
+  else {
+    rightDebounceTime = millis(); // Reset debounce time if condition is no longer met
+  }
+
+  // Debounce logic for left turn
+  if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
+    if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+      leftDebounceTime = millis(); // Update debounce time
+      left_count++;
+      Serial.println(left_count);
+      // Add turn_left logic if needed for specific counts
+    }
+  }
+  else {
+    leftDebounceTime = millis(); // Reset debounce time if condition is no longer met
+  }
+
+  // Debounce logic for split
+  if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+    if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+      splitDebounceTime = millis(); // Update debounce time
+      count_split++;
+      Serial.print("Split Count ");
+      Serial.println(count_split);
+      if (count_split == 1) {
+        turn_left(extreme_right, right, left, extreme_left);
+      }
+      else if (count_split == 2) {
+        turn_right(extreme_right, right, left, extreme_left);
+      }
+    }
+  }
+  else {
+    splitDebounceTime = millis(); // Reset debounce time if condition is no longer met
+  }
+  
+  /*else if(extreme_right==1 && right == 1 && left == 1 && extreme_left == 1){
+    count_split = count_split + 1;
+    Serial.print("Split Count ");
+    Serial.println(count_split);
+    if(count_split == 1){turn_left(extreme_right, right, left, extreme_left);}
+    else if(count_split == 2){turn_right(extreme_right, right, left, extreme_left);}
+  }
   else if(extreme_right == 0 && right == 1 && left == 1 && extreme_left ==1){
     delay(100);
     Serial.println(left_count);
@@ -82,25 +145,20 @@ void move(){
   }
   else if(extreme_right == 1 && right == 1 && left == 1 && extreme_left ==0){ //Turn Right
     delay(100);
-    Serial.println(right_count);
+    //Serial.println(right_count);
     right_count = right_count + 1;
+    Serial.print("Right Count ");
+    Serial.println(right_count);
     if (right_count == 2){turn_right(extreme_right, right, left, extreme_left);}
     else if(right_count == 3){turn_right(extreme_right, right, left, extreme_left);}
     else if(right_count == 4){turn_right(extreme_right, right, left, extreme_left);}
   }
-  else if(extreme_right==1 && right == 1 && left == 1 && extreme_left == 1){
-    delay(100);
-    Serial.println(count_split);
-    count_split = count_split + 1;
-    if(count_split == 1){turn_left(extreme_right, right, left, extreme_left);}
-    else if(count_split == 2){turn_right(extreme_right, right, left, extreme_left);}
-  }
-  else if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
+  */
+  if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
     Motor_Right->run(RELEASE);
     Motor_Left->run(RELEASE);
   }
 }
-
 
 void turn_right(int extreme_right, int right, int left, int extreme_left){
   Motor_Left->setSpeed(255);
@@ -142,12 +200,28 @@ void shift_right(int extreme_right, int right, int left, int extreme_left){
   Motor_Right->setSpeed(255);
   Motor_Left->run(FORWARD);
   Motor_Right->run(FORWARD);
-  Motor_Right->setSpeed(50);
+  Motor_Right->setSpeed(0);
+  /*while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0)){
+      delay(10);
+      extreme_right = digitalRead(extreme_right_pin);
+      right = digitalRead(right_pin);
+      left = digitalRead(left_pin);
+      extreme_left = digitalRead(extreme_left_pin);
+    }
+  Motor_Right->setSpeed(255);*/
 }
 void shift_left(int extreme_right, int right, int left, int extreme_left){
   Motor_Left->setSpeed(255);
   Motor_Right->setSpeed(255);
   Motor_Left->run(FORWARD);
   Motor_Right->run(FORWARD);
-  Motor_Left->setSpeed(50);
+  Motor_Left->setSpeed(0);
+  /*while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0)){
+      delay(10);
+      extreme_right = digitalRead(extreme_right_pin);
+      right = digitalRead(right_pin);
+      left = digitalRead(left_pin);
+      extreme_left = digitalRead(extreme_left_pin);
+    }
+  Motor_Left->setSpeed(255);*/
 }
