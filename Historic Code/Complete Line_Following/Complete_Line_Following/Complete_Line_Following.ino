@@ -10,15 +10,15 @@ int extreme_left_pin = 5;
 int blue_led_pin = 6;
 int green_led_pin = 7;
 
-int button = 8
+int button = 8;
 
-int left_motor_pin = 2;
-int right_motor_pin = 3;
+int left_motor_pin = 4;
+int right_motor_pin = 1;
 
 
 
 bool isMoving = false;
-bool start = false
+//bool start = false;
 
 Adafruit_DCMotor *Motor_Left = AFMS.getMotor(left_motor_pin);
 Adafruit_DCMotor *Motor_Right = AFMS.getMotor(right_motor_pin);
@@ -53,7 +53,7 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(button) == LOW) { // Button pressed (active LOW)
+  /*if (digitalRead(button) == HIGH) { // Button pressed (active HIGH)
     start = !start; // Toggle start state
     delay(200);     // Debounce delay
   }
@@ -66,7 +66,8 @@ void loop() {
     Motor_Right->run(RELEASE);
     isMoving = false;
   }
-  digitalWrite(blue_led_pin, start ? HIGH : LOW);
+  digitalWrite(blue_led_pin, start ? LOW : HIGH); */
+  driveMotors();
 }
 
 void driveMotors() {
@@ -74,37 +75,41 @@ void driveMotors() {
   int right = digitalRead(right_pin);
   int left = digitalRead(left_pin);
   int extreme_left = digitalRead(extreme_left_pin);
-
+  
   // Main driving logic
-  while (start) { // Ensure we exit if the button is pressed again
+  while (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0) { // Ensure we exit if the button is pressed again
+    
     extreme_right = digitalRead(extreme_right_pin);
     right = digitalRead(right_pin);
     left = digitalRead(left_pin);
     extreme_left = digitalRead(extreme_left_pin);
 
-    if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0) {
-      // Moving straight
-      Serial.println("Moving Forward");
-      Motor_Left->run(FORWARD);
-      Motor_Right->run(FORWARD);
-      Motor_Left->setSpeed(255);
-      Motor_Right->setSpeed(255);
-    } 
-    else if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) {
+    Serial.print(extreme_left);
+    Serial.print(left);
+    Serial.print(right);
+    Serial.println(extreme_right);
+
+    Motor_Left->setSpeed(255);
+    Motor_Right->setSpeed(255);
+
+    Motor_Left->run(FORWARD);
+    Motor_Right->run(FORWARD);
+
+    if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) {
       // Turn right until back to 0110
       Serial.println("Turning Right");
       Motor_Left->run(FORWARD);
       Motor_Right->run(FORWARD);
       delay(100); // Move forward briefly
       Motor_Right->run(BACKWARD); // Start turning right
-
-      while (!(digitalRead(extreme_right_pin) == 0 && digitalRead(right_pin) == 1 && digitalRead(left_pin) == 1 && digitalRead(extreme_left_pin) == 0)) {
-            if (digitalRead(button) == LOW) { // Button pressed (active LOW)
+      while (digitalRead(extreme_right_pin) != 0 && digitalRead(right_pin) != 1 && digitalRead(left_pin) != 1 && digitalRead(extreme_left_pin) != 0) {
+            /*if (digitalRead(button) == HIGH) { // Button pressed (active HIGH)
               start = !start; // Toggle start state
               delay(200);     // Debounce delay
             } 
-            if (start) return; // Exit if button is pressed again
+            if (start) return; // Exit if button is pressed again */
             delay(10);
+            Serial.println("Turn Right");
       }
     Motor_Right->run(FORWARD); // Resume forward motion
     } 
@@ -115,13 +120,15 @@ void driveMotors() {
       Motor_Left->run(FORWARD);
       delay(100); // Move forward briefly
       Motor_Left->run(BACKWARD); // Start turning left
-      while (!(digitalRead(extreme_right_pin) == 0 && digitalRead(right_pin) == 1 && digitalRead(left_pin) == 1 && digitalRead(extreme_left_pin) == 0)) {
-            if (digitalRead(button) == LOW) { // Button pressed (active LOW)
+      delay(250);
+      while ((digitalRead(extreme_right_pin) != 0 && digitalRead(right_pin) != 1 && digitalRead(left_pin) != 1 && digitalRead(extreme_left_pin) != 0)) {
+            /*if (digitalRead(button) == HIGH) { // Button pressed (active HIGH)
               start = !start; // Toggle start state
               delay(200);     // Debounce delay
             } 
-            if (start) return; // Exit if button is pressed again
+            if (start) return; // Exit if button is pressed again*/
             delay(10);
+            Serial.println("Turn Left");
       }
       Motor_Left->run(FORWARD); // Resume forward motion
     } 
@@ -131,13 +138,14 @@ void driveMotors() {
       Motor_Right->run(FORWARD);
       Motor_Left->run(FORWARD);
       Motor_Right->setSpeed(200);
-      while (!(digitalRead(extreme_right_pin) == 0 && digitalRead(right_pin) == 1 && digitalRead(left_pin) == 1 && digitalRead(extreme_left_pin) == 0)) {
-            if (digitalRead(button) == LOW) { // Button pressed (active LOW)
+      while (digitalRead(extreme_right_pin) != 0 && digitalRead(right_pin) != 1 && digitalRead(left_pin) != 1 && digitalRead(extreme_left_pin) != 0) {
+            /*if (digitalRead(button) == HIGH) { // Button pressed (active HIGH)
               start = !start; // Toggle start state
               delay(200);     // Debounce delay
             } 
-            if (start) return; // Exit if button is pressed again
+            if (start) return; // Exit if button is pressed again */
             delay(10);
+            Serial.println("Shift Right");
       }
       Motor_Right->setSpeed(250);
     }
@@ -147,13 +155,14 @@ void driveMotors() {
       Motor_Right->run(FORWARD);
       Motor_Left->run(FORWARD);
       Motor_Left->setSpeed(200);
-      while (!(digitalRead(extreme_right_pin) == 0 && digitalRead(right_pin) == 1 && digitalRead(left_pin) == 1 && digitalRead(extreme_left_pin) == 0)) {
-            if (digitalRead(button) == LOW) { // Button pressed (active LOW)
+      while (digitalRead(extreme_right_pin) != 0 && digitalRead(right_pin) != 1 && digitalRead(left_pin) != 1 && digitalRead(extreme_left_pin) != 0) {
+            /* if (digitalRead(button) == HIGH) { // Button pressed (active HIGH)
               start = !start; // Toggle start state
               delay(200);     // Debounce delay
             } 
-            if (start) return; // Exit if button is pressed again
+            if (start) return; // Exit if button is pressed again */
             delay(10);
+            Serial.println("Shift Left");
       }
       Motor_Left->setSpeed(250);
     }
@@ -162,9 +171,8 @@ void driveMotors() {
       Motor_Left->run(RELEASE);
       Motor_Right->run(RELEASE);
       isMoving = false;
-    }
 
-    if (!start) break; // Exit loop if button is pressed again
+    //if (!start) break; // Exit loop if button is pressed again
   }
 } 
 /*
