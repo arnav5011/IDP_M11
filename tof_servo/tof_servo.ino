@@ -43,6 +43,7 @@ void loop() {
 
 
 void moveServo(int targetPosition) {
+  isMoving = true;
   int step = (targetPosition > currentPosition) ? 1 : -1;
   
   while (currentPosition != targetPosition && isMoving) {
