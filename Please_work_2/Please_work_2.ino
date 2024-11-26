@@ -64,17 +64,13 @@ void setup() {
 
 void loop() {
   static bool motorsRunning = true; // Track the state of the motors
-  static unsigned long lastDebounceTime = 0; // For debouncing
-  const unsigned long debounceDelay = 50; // Debounce delay
+  static int lastButtonState = LOW; // Store the last button state
+  int currentButtonState = digitalRead(input_pin); // Read the current button state
 
-  int pin_val = digitalRead(input_pin);
-
-  // Check if button state has changed
-  if (pin_val == HIGH && (millis() - lastDebounceTime) > debounceDelay) {
-    lastDebounceTime = millis(); // Update the last debounce time
-
-    // Toggle motor state
-    motorsRunning = !motorsRunning;
+  // Detect rising edge (button pressed)
+  if (currentButtonState == HIGH && lastButtonState == LOW) {
+    delay(debounceDelay); // Simple debounce delay
+    motorsRunning = !motorsRunning; // Toggle motor state
 
     if (motorsRunning) {
       move(); // Start moving
@@ -84,11 +80,16 @@ void loop() {
     }
   }
 
+  // Update the last button state
+  lastButtonState = currentButtonState;
+
   // If motors are running, continue executing move logic
   if (motorsRunning) {
     move();
   }
 }
+
+
 
 
 void move(){
