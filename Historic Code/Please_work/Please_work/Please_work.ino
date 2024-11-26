@@ -13,9 +13,11 @@ int extreme_left_pin = 5;
 int left_motor_pin = 2;
 int right_motor_pin = 3;
 
+bool isMoving = false;
 int count_split = 0; //Checks Split Count
 int right_count = 0; //Checks number of juncitons where right turn could be taken
 int left_count = 0; //checks number of junctions where left turn could be taken 
+int end = 0;
 
 unsigned long debounceDelay = 80; // 100 ms debounce delay
 unsigned long rightbounceDelay = 90; //
@@ -74,6 +76,9 @@ void move(){
     Motor_Right->setSpeed(255);
     Motor_Left->run(FORWARD);
     Motor_Right->run(FORWARD);
+    if(!isMoving){
+    isMoving = true;
+    }
     //Serial.println("Move Forward");
   }
   else if(extreme_right == 0 && right == 0 && left == 1 && extreme_left == 0){shift_left(extreme_right, right, left, extreme_left);} //Off coursed to rightside so turn to left
@@ -90,7 +95,7 @@ void move(){
       right_count++;
       Serial.print("Right Count ");
       Serial.println(right_count);
-      if (right_count == 2 || right_count == 3 || right_count == 4) {
+      if (right_count == 2 || right_count == 3 || right_count == 4 || right_count == 5) {
         turn_right(extreme_right, right, left, extreme_left);
       }
     }
@@ -105,6 +110,9 @@ void move(){
       leftDebounceTime = millis(); // Update debounce time
       left_count++;
       Serial.println(left_count);
+      if (left_count == 1) {
+        turn_left(extreme_right, right, left, extreme_left);
+      }
       // Add turn_left logic if needed for specific counts
     }
   }
@@ -119,10 +127,10 @@ void move(){
       count_split++;
       Serial.print("Split Count ");
       Serial.println(count_split);
-      if (count_split == 1) {
+      if (count_split == 1 || count_split == 3 || count_split == 4) {
         turn_left(extreme_right, right, left, extreme_left);
       }
-      else if (count_split == 2) {
+      else if (count_split == 2 || count_split == 5) {
         turn_right(extreme_right, right, left, extreme_left);
       }
     }
@@ -157,6 +165,44 @@ void move(){
   if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
     Motor_Right->run(RELEASE);
     Motor_Left->run(RELEASE);
+    if (isMoving){
+    end = end + 1;
+    }
+    isMoving = false;
+    if (end == 1){
+      delay(1000);
+      Motor_Right->setSpeed(200);
+      Motor_Left->setSpeed(200);
+      Motor_Right->run(BACKWARD);
+      Motor_Left->run(BACKWARD);
+      delay(200);
+      isMoving = true;
+      while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
+        delay(10);
+        extreme_right = digitalRead(extreme_right_pin);
+        right = digitalRead(right_pin);
+        left = digitalRead(left_pin);
+        extreme_left = digitalRead(extreme_left_pin);
+        if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0){ //Move backward when middle 2 sensors on the line
+           Motor_Left->setSpeed(255);
+           Motor_Right->setSpeed(255);
+           Motor_Left->run(BACKWARD);
+           Motor_Right->run(BACKWARD);
+           if(!isMoving){
+            isMoving = true;
+          }
+        }
+        else if(extreme_right == 0 && right == 0 && left == 1 && extreme_left == 0){shift_left_back(extreme_right, right, left, extreme_left);} //Off coursed to rightside so turn to left
+        else if(extreme_right == 0 && right == 0 && left == 1 && extreme_left == 1){shift_left_back(extreme_right, right, left, extreme_left);}
+        else if(extreme_right == 0 && right == 0 && left == 0 && extreme_left == 1){shift_left_back(extreme_right, right, left, extreme_left);} //Off coursed to rightside so turn to left
+  
+        else if(extreme_right == 0 && right == 1 && left == 0 && extreme_left == 0){shift_right_back(extreme_right, right, left, extreme_left);}
+        else if(extreme_right == 1 && right == 1 && left == 0 && extreme_left == 0){shift_right_back(extreme_right, right, left, extreme_left);}      
+        else if(extreme_right == 1 && right == 0 && left == 0 && extreme_left == 0){shift_right_back(extreme_right, right, left, extreme_left);}
+      }
+      Motor_Right->run(RELEASE);
+      Motor_Left->run(RELEASE);
+    }
   }
 }
 
@@ -167,6 +213,10 @@ void turn_right(int extreme_right, int right, int left, int extreme_left){
   Motor_Right->run(FORWARD);
   delay(500);
   Motor_Right->run(BACKWARD);
+  delay(500);
+  if(!isMoving){
+    isMoving = true;
+    }
     while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0)){
       delay(10);
       extreme_right = digitalRead(extreme_right_pin);
@@ -185,6 +235,10 @@ void turn_left(int extreme_right, int right, int left, int extreme_left){
   Motor_Right->run(FORWARD);
   delay(500);
   Motor_Left->run(BACKWARD);
+  delay(500);
+  if(!isMoving){
+    isMoving = true;
+    }
     while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0)){
       delay(10);
       extreme_right = digitalRead(extreme_right_pin);
@@ -201,14 +255,26 @@ void shift_right(int extreme_right, int right, int left, int extreme_left){
   Motor_Left->run(FORWARD);
   Motor_Right->run(FORWARD);
   Motor_Right->setSpeed(0);
+  if(!isMoving){
+    isMoving = true;
+    }
+}
+
+void shift_right_back(int extreme_right, int right, int left, int extreme_left){
+  Motor_Left->setSpeed(255);
+  Motor_Right->setSpeed(255);
+  Motor_Left->run(BACKWARD);
+  Motor_Right->run(BACKWARD);
+  Motor_Right->setSpeed(0);
+  if(!isMoving){
+    isMoving = true;
+    }
   /*while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0)){
-      delay(10);
       extreme_right = digitalRead(extreme_right_pin);
       right = digitalRead(right_pin);
       left = digitalRead(left_pin);
       extreme_left = digitalRead(extreme_left_pin);
-    }
-  Motor_Right->setSpeed(255);*/
+  }*/
 }
 void shift_left(int extreme_right, int right, int left, int extreme_left){
   Motor_Left->setSpeed(255);
@@ -216,12 +282,23 @@ void shift_left(int extreme_right, int right, int left, int extreme_left){
   Motor_Left->run(FORWARD);
   Motor_Right->run(FORWARD);
   Motor_Left->setSpeed(0);
+  if(!isMoving){
+    isMoving = true;
+    }
+}
+void shift_left_back(int extreme_right, int right, int left, int extreme_left){
+  Motor_Left->setSpeed(255);
+  Motor_Right->setSpeed(255);
+  Motor_Left->run(BACKWARD);
+  Motor_Right->run(BACKWARD);
+  Motor_Left->setSpeed(0);
+  if(!isMoving){
+    isMoving = true;
+  }
   /*while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0)){
-      delay(10);
       extreme_right = digitalRead(extreme_right_pin);
       right = digitalRead(right_pin);
       left = digitalRead(left_pin);
       extreme_left = digitalRead(extreme_left_pin);
-    }
-  Motor_Left->setSpeed(255);*/
+    }*/
 }
