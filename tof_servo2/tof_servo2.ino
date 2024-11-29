@@ -6,9 +6,9 @@
 DFRobot_VL53L0X sensor;
 Servo myservo;
 
-const int THRESHOLD = 100; // 10cm in millimetres
+const int THRESHOLD = 90; // 10cm in millimetres
 const int DEFAULT_POSITION = 0;
-const int ACTIVATED_POSITION = 90;
+const int ACTIVATED_POSITION = 120;
 const int SERVO_PIN = 12;
 
 int currentPosition = DEFAULT_POSITION;
@@ -44,13 +44,12 @@ void loop() {
 
 void moveServo(int targetPosition) {
   isMoving = true;
-  int step = (targetPosition > currentPosition) ? 1 : -1;
+  int step = (targetPosition > currentPosition) ? 10 : -10;
   
   while (currentPosition != targetPosition && isMoving) {
     currentPosition += step;
     myservo.write(currentPosition);
     delay(15);
-    Serial.print("test");
 
     // Check if the condition has changed mid-movement
     int newDistance = sensor.getDistance();
