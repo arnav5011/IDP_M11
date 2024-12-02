@@ -183,30 +183,28 @@ void run() {
         }
       }
       else {splitDebounceTime = millis();} // Reset debounce time if condition is no longer met
-      if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
-        Motor_Right->run(RELEASE);
-        Motor_Left->run(RELEASE);
-        if (end == 0){
-          Motor_Right->setSpeed(255);
-          Motor_Left->setSpeed(255);
-          Motor_Right->run(FORWARD);
-          Motor_Left->run(FORWARD);
-          delay(200);
-          isMoving = true;
-          while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
-            delay(10);
-            extreme_right = digitalRead(extreme_right_pin);
-            right = digitalRead(right_pin);
-            left = digitalRead(left_pin);
-            extreme_left = digitalRead(extreme_left_pin);
-          }
-          Motor_Right->run(RELEASE);
-          Motor_Left->run(RELEASE);
+    }
+    if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
+      Motor_Right->run(RELEASE);
+      Motor_Left->run(RELEASE);
+      if (end == 1){
+        Motor_Right->setSpeed(255);
+        Motor_Left->setSpeed(225);
+        Motor_Right->run(BACKWARD);
+        Motor_Left->run(BACKWARD);
+        delay(200);
+        while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
+          delay(10);
+          extreme_right = digitalRead(extreme_right_pin);
+          right = digitalRead(right_pin);
+          left = digitalRead(left_pin);
+          extreme_left = digitalRead(extreme_left_pin);
         }
+        Motor_Right->run(RELEASE);
+        Motor_Left->run(RELEASE); 
       }
     }
-  }
-  
+  } 
 }
 
 void path_follow(int extreme_right, int right, int left, int extreme_left){
