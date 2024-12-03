@@ -6,9 +6,9 @@
 DFRobot_VL53L0X sensor;
 Servo myservo;
 
-const int THRESHOLD = 30; // 9cm in millimetres
+const int THRESHOLD = 90; // 9cm in millimetres
 const int DEFAULT_POSITION = 0;
-const int ACTIVATED_POSITION = 120;
+const int ACTIVATED_POSITION = 105;
 const int SERVO_PIN = 12;
 const int BUTTON_PIN = 11; // Connect button to pin 11
 
@@ -69,8 +69,11 @@ void loop() {
 
 
 
+
+
+
 void moveServo(int targetPosition) {
-  int step = (targetPosition > currentPosition) ? 10 : -10;
+  int step = (targetPosition > currentPosition) ? 5 : -5;
   
   while (currentPosition != targetPosition) {
     currentPosition += step;

@@ -20,6 +20,8 @@ int mag_sensor_2 = 10; // Magnetic sensor 2
 //int green_led_pin;
 
 int left_motor_pin = 2;
+
+
 int right_motor_pin = 3;
 
 bool isMoving = false;
