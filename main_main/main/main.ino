@@ -1,6 +1,22 @@
 #include <Adafruit_MotorShield.h>
+#include "Arduino.h"
+#include "Wire.h"
+#include "DFRobot_VL53L0X.h"
+#include <Servo.h>
 
+DFRobot_VL53L0X sensor;
+Servo myservo;
+
+const int THRESHOLD = 90; // 10cm in millimetres
+const int DEFAULT_POSITION = 0;
+const int ACTIVATED_POSITION = 110;
+const int SERVO_PIN = 12;
+
+int currentPosition = DEFAULT_POSITION;
+bool isRotating = false;
+bool isMoving = false;
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+
 
 //Initialize Pins for line sensors 
 int extreme_right_pin = 2; 
@@ -15,25 +31,28 @@ int red_led_pin = 7;   // Red LED (magnetic object)
 int green_led_pin = 8; // Green LED (non-magnetic object)
 
 int time_of_flight; // Time of flight sensor.
-int mag_sensor_1; // Magnetic Sensor Pin
-int mag_sensor_2;
+int mag_sensor_1 = 9; // Magnetic Sensor Pin
+int mag_sensor_2 = 10;
 
 int left_motor_pin = 2;
 int right_motor_pin = 3;
 
-bool isMoving = false; //Define state of motion to handle flickering of blue LED
 bool tof_active = true; //Define whether to use readings from time of flight
 unsigned long tof_threshold; //Define threshold from which obstacles should be picked up
 bool object_detected = false;
-int object_count;
-bool collected;
-bool isMagnetic;
+int object_count = 0;
+bool collected = false;
+bool isMagnetic = false;
 
 //Check number of splits, right junctions, left junctions, to work around path taken
-int count_split = -1; //Initialize -1 considering start conditions.
+int count_split = 0; //Initialize -1 considering start conditions.
 int right_count = 0; //Checks number of juncitons where right turn could be taken
 int left_count = 0; //checks number of junctions where left turn could be taken 
 int end = 0; //checks number of ends reached
+
+int big_left = 0;
+int big_right = 0;
+int big_split = 0;
 
 unsigned long debounceDelay = 80; // Minimum time sensors detect as split junction. Helps to differentiate between split or right/left junction
 unsigned long rightbounceDelay = 90; // Minimum time sensors detect right junction. Helps to differentiate between split or right/left junction
@@ -80,6 +99,14 @@ void setup() {
   pinMode(mag_sensor_1, INPUT);
   pinMode(mag_sensor_2, INPUT);
 
+  Wire.begin();
+  sensor.begin(0x50);
+  sensor.setMode(sensor.eContinuous, sensor.eHigh);
+  sensor.start();
+ 
+  myservo.attach(SERVO_PIN);
+  myservo.write(DEFAULT_POSITION);
+
 }
 
 void loop() {
@@ -101,13 +128,10 @@ void loop() {
 
     if (motorsRunning) {
     run();
-  }
-
+    }
   handleLEDs();
   }
-
   lastButtonState = currentButtonState;
-
 }
 
 void run() {
@@ -118,10 +142,11 @@ void run() {
   
   path_follow(extreme_right, right, left, extreme_left);
 
-  if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
+  /*if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
     Motor_Right->run(RELEASE);
     Motor_Left->run(RELEASE);
     if (end == 0){
+      end = end + 1;
       Motor_Right->setSpeed(255);
       Motor_Left->setSpeed(255);
       Motor_Right->run(FORWARD);
@@ -138,10 +163,17 @@ void run() {
       Motor_Right->run(RELEASE);
       Motor_Left->run(RELEASE);
     }
-  }
+  } */
+  if (tof_active){detect_object();}
+  
+  if(object_detected){collect_object();}
 
-  if (object_count == 1 && isMagnetic && collected) {
+  if(collected){check_mag();}
+
+
+  if (object_count == 1 && !isMagnetic && collected) {
     while(collected) {
+      handleLEDs();
       int extreme_right = digitalRead(extreme_right_pin); 
       int right = digitalRead(right_pin);
       int left = digitalRead(left_pin);
@@ -159,17 +191,6 @@ void run() {
       }
       else {rightDebounceTime = millis();} // Reset debounce time if condition is no longer met
 
-      // Debounce logic for left turn
-      if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
-        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
-          leftDebounceTime = millis(); // Update debounce time
-          left_count++;
-          Serial.println(left_count);
-          if (left_count == 1 || left_count == 3 || left == 4) {turn_left(extreme_right, right, left, extreme_left);}
-        // Add turn_left logic if needed for specific counts
-        }
-      }
-      else {leftDebounceTime = millis();} // Reset debounce time if condition is no longer met
     
     // Debounce logic for split
       if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
@@ -179,33 +200,553 @@ void run() {
           Serial.print("Split Count ");
           Serial.println(count_split);
           if (count_split == 1) {turn_left(extreme_right, right, left, extreme_left);}
-          else if (count_split == 2 || count_split == 3) {turn_right(extreme_right, right, left, extreme_left);}
+          else if (count_split == 2) {turn_right(extreme_right, right, left, extreme_left);}
         }
       }
       else {splitDebounceTime = millis();} // Reset debounce time if condition is no longer met
+      if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
+        backward_landfill(extreme_right, right, left, extreme_left);
+      }
+    }    
+    left_count = 0;
+    right_count = 0;
+    count_split = 0;
+    turn_right(extreme_right, right, left, extreme_left);
+    while(!(extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1)){
+      handleLEDs();
+      delay(10);
+      extreme_right = digitalRead(extreme_right_pin);
+      right = digitalRead(right_pin);
+      left = digitalRead(left_pin);
+      extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
     }
-    if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
-      Motor_Right->run(RELEASE);
-      Motor_Left->run(RELEASE);
-      if (end == 1){
-        Motor_Right->setSpeed(255);
-        Motor_Left->setSpeed(225);
-        Motor_Right->run(BACKWARD);
-        Motor_Left->run(BACKWARD);
-        delay(200);
-        while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
-          delay(10);
-          extreme_right = digitalRead(extreme_right_pin);
-          right = digitalRead(right_pin);
-          left = digitalRead(left_pin);
-          extreme_left = digitalRead(extreme_left_pin);
+    delay(100);
+    servo_close();
+  }
+  else if(object_count == 1 && isMagnetic && collected){
+    while(collected) {
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      
+      path_follow(extreme_right, right, left, extreme_left);
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible right turn
+        if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+          rightDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.print("Right Count ");
+          Serial.println(right_count);
+        if (right_count == 2 || right_count == 3 || right_count == 4) {turn_right(extreme_right, right, left, extreme_left);}
         }
-        Motor_Right->run(RELEASE);
-        Motor_Left->run(RELEASE); 
+      }
+      else {rightDebounceTime = millis();} // Reset debounce time if condition is no longer met
+
+    
+    // Debounce logic for split
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+        if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+          splitDebounceTime = millis(); // Update debounce time
+          count_split++;
+          Serial.print("Split Count ");
+          Serial.println(count_split);
+          if (count_split == 1) {turn_left(extreme_right, right, left, extreme_left);}
+          else if (count_split == 2) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {splitDebounceTime = millis();} // Reset debounce time if condition is no longer met
+      if(extreme_right==0 && right == 0 && left == 0 && extreme_left == 0) {
+        backward_recycle(extreme_right, right, left, extreme_left);
+        turn_right(extreme_right, right, left, extreme_left); 
+        left_count = 0;
+        right_count = 0;
+        count_split = 0;
+        servo_close();
+      }
+      while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
+        handleLEDs();
+        delay(10);
+        extreme_right = digitalRead(extreme_right_pin);
+        right = digitalRead(right_pin);
+        left = digitalRead(left_pin);
+        extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+      }
+      turn_left(extreme_right, right, left, extreme_left);
+      delay(100);
+    }
+  }
+
+
+  if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
+    if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+      leftDebounceTime = millis(); // Update debounce time
+      big_left++;
+      Serial.println(left_count);
+      if (big_left == 1) {turn_left(extreme_right, right, left, extreme_left);}
+      else if(big_left == 2) {
+        turn_left(extreme_right, right, left, extreme_left);
+        delay(100);
+        servo_open();
       }
     }
-  } 
-}
+  }
+  else {leftDebounceTime = millis();} // Reset debounce time if condition is no longer met
+
+
+  if (object_count == 2 && isMagnetic && collected) {
+    while(collected) {
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+      
+      if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          left_count++;
+          Serial.println(left_count);
+          if (left_count == 1 || left_count == 2) {turn_left(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();} // Reset debounce time if condition is no longer met
+    
+      if (extreme_right == 0 && right == 0 && left == 0 && extreme_left == 0){
+        backward_recycle(extreme_right, right, left, extreme_left);
+        turn_right(extreme_right, right, left, extreme_left); 
+        delay(100);
+        left_count = 0;
+        right_count = 0;
+        count_split = 0;
+        servo_close();
+      }
+    }
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1))){
+        handleLEDs();
+        int extreme_right = digitalRead(extreme_right_pin); 
+        int right = digitalRead(right_pin);
+        int left = digitalRead(left_pin);
+        int extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+      }
+      turn_right(extreme_right, right, left, extreme_left);
+      while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0))){
+        handleLEDs();
+        int extreme_right = digitalRead(extreme_right_pin); 
+        int right = digitalRead(right_pin);
+        int left = digitalRead(left_pin);
+        int extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+        if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if (right_count == 2) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();}
+      }
+    right_count == 0;
+    count_split == 0;
+    left_count == 0;
+  }
+  
+  else if(object_count == 2 && !isMagnetic && collected) {
+    while(collected) {
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+
+      if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          left_count++;
+          Serial.println(left_count);
+          if (left_count == 1) {turn_left(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();}
+
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible right turn
+        if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+          rightDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.print("Right Count ");
+          Serial.println(right_count);
+        if (right_count == 1) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {rightDebounceTime = millis();} // Reset debounce time if condition is no longer met
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+        if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+          splitDebounceTime = millis(); // Update debounce time
+          count_split++;
+          Serial.print("Split Count ");
+          Serial.println(count_split);
+          if (count_split == 1) {turn_right(extreme_right, right, left, extreme_left);}
+          }
+        }
+      else {splitDebounceTime = millis();}
+      if (extreme_right == 0 && right == 0 && left == 0 && extreme_left == 0) {
+        backward_landfill(extreme_right, right, left, extreme_left);
+      }
+    }
+    left_count = 0;
+    right_count = 0;
+    count_split = 0;
+    turn_left(extreme_right, right, left, extreme_left);
+    delay(100);
+    servo_close();
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0))){
+        int extreme_right = digitalRead(extreme_right_pin); 
+        int right = digitalRead(right_pin);
+        int left = digitalRead(left_pin);
+        int extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+        if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if (right_count == 1) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();}
+    }
+    right_count == 0;
+    count_split == 0;
+    left_count == 0;
+  }
+
+  if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+      if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+        rightDebounceTime = millis(); // Update debounce time
+        big_right++;
+        if(big_right == 1) {
+          turn_right(extreme_right, right, left, extreme_left);
+          servo_open();
+        }
+      }
+    }
+    else {leftDebounceTime = millis();}
+
+  
+  if (object_count == 3 && isMagnetic && collected) {
+    while(collected) {
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+      
+      if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          left_count++;
+          Serial.println(left_count);
+          if (left_count == 1) {turn_left(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();} // Reset debounce time if condition is no longer met
+
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+          rightDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(right_count);
+          if (right_count == 1) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();} // Reset debounce time if condition is no longer met
+    
+      if (extreme_right == 0 && right == 0 && left == 0 && extreme_left == 0){
+        backward_recycle(extreme_right, right, left, extreme_left);
+        turn_right(extreme_right, right, left, extreme_left); 
+        delay(100);
+        left_count = 0;
+        right_count = 0;
+        count_split = 0;
+        servo_close();
+      }
+    }
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1))){
+        handleLEDs();
+        int extreme_right = digitalRead(extreme_right_pin); 
+        int right = digitalRead(right_pin);
+        int left = digitalRead(left_pin);
+        int extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+      }
+    turn_right(extreme_right, right, left, extreme_left);
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0))){
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if (right_count == 2) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();}
+      }
+    right_count == 0;
+    count_split == 0;
+    left_count == 0;
+  }
+  
+  else if(object_count == 3 && !isMagnetic && collected) {
+    while(collected) {
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible right turn
+        if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+          rightDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.print("Right Count ");
+          Serial.println(right_count);
+        if (right_count == 1 || right_count == 2) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {rightDebounceTime = millis();} // Reset debounce time if condition is no longer met
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+        if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+          splitDebounceTime = millis(); // Update debounce time
+          count_split++;
+          Serial.print("Split Count ");
+          Serial.println(count_split);
+          if (count_split == 1) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {splitDebounceTime = millis();}
+      if (extreme_right == 0 && right == 0 && left == 0 && extreme_left == 0) {
+        backward_landfill(extreme_right, right, left, extreme_left);
+      }
+    }
+    left_count = 0;
+    right_count = 0;
+    count_split = 0;
+    turn_left(extreme_right, right, left, extreme_left);
+    delay(100);
+    servo_close();
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0))){
+        handleLEDs();
+        int extreme_right = digitalRead(extreme_right_pin); 
+        int right = digitalRead(right_pin);
+        int left = digitalRead(left_pin);
+        int extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+        if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+          rightDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if (right_count == 1) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();}
+    }
+    right_count == 0;
+    count_split == 0;
+    left_count == 0;
+  }
+  
+  if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+      if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+        leftDebounceTime = millis(); // Update debounce time
+        big_right++;
+        Serial.println(left_count);
+        if(big_right == 4) {
+          turn_right(extreme_right, right, left, extreme_left);
+          servo_open();
+        }
+      }
+    }
+    else {leftDebounceTime = millis();}
+  
+  if(object_count == 4 && isMagnetic && collected) {
+    while(collected){
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if(right_count == 2 || right_count == 3 || right_count == 4) {
+            turn_right(extreme_right, right, left, extreme_left);
+          }
+        }
+      }
+      else {leftDebounceTime = millis();}
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+        if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+        splitDebounceTime = millis(); // Update debounce time
+        count_split++;
+        Serial.print("Split Count ");
+        Serial.println(count_split);
+        if (count_split == 1) {turn_right(extreme_right, right, left, extreme_left);}
+      }
+    }
+    else {splitDebounceTime = millis();}
+      if (extreme_right == 0 && right == 0 && left == 0 && extreme_left == 0){
+        backward_recycle(extreme_right, right, left, extreme_left);
+        turn_right(extreme_right, right, left, extreme_left); 
+        delay(100);
+        left_count = 0;
+        right_count = 0;
+        count_split = 0;
+        servo_close();
+      }
+    }
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1))){
+        handleLEDs();
+        int extreme_right = digitalRead(extreme_right_pin); 
+        int right = digitalRead(right_pin);
+        int left = digitalRead(left_pin);
+        int extreme_left = digitalRead(extreme_left_pin);
+        path_follow(extreme_right, right, left, extreme_left);
+    }
+    turn_right(extreme_right, right, left, extreme_left);
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0))){
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if (right_count == 2) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+      else {leftDebounceTime = millis();}
+    }
+    right_count == 0;
+    count_split == 0;
+    left_count == 0;
+  }
+  else if(object_count == 4 && !isMagnetic && collected){
+    while(collected){
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+          leftDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if(right_count == 2 || right_count == 3 || right_count == 4) {
+            turn_right(extreme_right, right, left, extreme_left);
+          }
+        }
+      }
+      else {leftDebounceTime = millis();}
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+        if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+        splitDebounceTime = millis(); // Update debounce time
+        count_split++;
+        Serial.print("Split Count ");
+        Serial.println(count_split);
+        if (count_split == 1) {turn_right(extreme_right, right, left, extreme_left);}
+      }
+    }
+    else {splitDebounceTime = millis();}
+
+      if (extreme_right == 0 && right == 0 && left == 0 && extreme_left == 0){
+        backward_recycle(extreme_right, right, left, extreme_left);
+        turn_right(extreme_right, right, left, extreme_left); 
+        delay(100);
+        left_count = 0;
+        right_count = 0;
+        count_split = 0;
+        servo_close();
+      }
+    }
+    while((!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0))){
+      handleLEDs();
+      int extreme_right = digitalRead(extreme_right_pin); 
+      int right = digitalRead(right_pin);
+      int left = digitalRead(left_pin);
+      int extreme_left = digitalRead(extreme_left_pin);
+      path_follow(extreme_right, right, left, extreme_left);
+      if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+        if (millis() - rightDebounceTime >= rightbounceDelay) { // Check if condition lasts for debounceDelay
+          rightDebounceTime = millis(); // Update debounce time
+          right_count++;
+          Serial.println(left_count);
+          if (right_count == 1) {turn_right(extreme_right, right, left, extreme_left);}
+        }
+      }
+        else {leftDebounceTime = millis();}
+    } 
+  }
+
+  if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 0) { // Possible left turn
+      if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+        leftDebounceTime = millis(); // Update debounce time
+        big_right++;
+        Serial.println(left_count);
+        if(big_right == 8) {turn_right;}
+      }
+    }
+  else {leftDebounceTime = millis();}
+
+  if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 1) { // Possible left turn
+      if (millis() - leftDebounceTime >= leftbounceDelay) { // Check if condition lasts for debounceDelay
+        leftDebounceTime = millis(); // Update debounce time
+        big_left++;
+        Serial.println(left_count);
+        if(big_left==3) {turn_left(extreme_right, right, left, extreme_left);}
+      }
+    }
+  else {leftDebounceTime = millis();}
+
+  if (extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1) { // Possible split
+    if (millis() - splitDebounceTime >= debounceDelay) { // Check if condition lasts for debounceDelay
+      splitDebounceTime = millis(); // Update debounce time
+      big_split++;
+      Serial.print("Split Count ");
+      Serial.println(count_split);
+      if (big_split == 1) {
+        delay(2500);
+        Motor_Right->run(RELEASE);
+        Motor_Left->run(RELEASE);
+      }
+    }
+  }
+  else {splitDebounceTime = millis();} 
+} 
 
 void path_follow(int extreme_right, int right, int left, int extreme_left){
   if (extreme_right == 0 && right == 1 && left == 1 && extreme_left == 0){ //Move forward when middle 2 sensors on the line
@@ -303,6 +844,50 @@ void shift_left(int extreme_right, int right, int left, int extreme_left){
   }
 }
 
+void backward_recycle(int extreme_right, int right, int left, int extreme_left){
+  Motor_Right->run(RELEASE);
+  Motor_Left->run(RELEASE);
+  delay(250);
+  Motor_Right->setSpeed(255);
+  Motor_Left->setSpeed(225);
+  Motor_Right->run(BACKWARD);
+  Motor_Left->run(BACKWARD);
+  delay(250);
+  deposit_object();
+  while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
+    delay(10);
+    extreme_right = digitalRead(extreme_right_pin);
+    right = digitalRead(right_pin);
+    left = digitalRead(left_pin);
+    extreme_left = digitalRead(extreme_left_pin);
+  }
+  Motor_Right->run(RELEASE);
+  Motor_Left->run(RELEASE);
+}
+
+void backward_landfill(int extreme_right, int right, int left, int extreme_left){
+  Motor_Right->run(RELEASE);
+  Motor_Left->run(RELEASE);
+
+  deposit_object();
+  delay(2000);
+      
+  Motor_Right->setSpeed(255);
+  Motor_Left->setSpeed(225);
+  Motor_Right->run(BACKWARD);
+  Motor_Left->run(BACKWARD);
+  delay(200);
+  while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){
+    delay(10);
+    extreme_right = digitalRead(extreme_right_pin);
+    right = digitalRead(right_pin);
+    left = digitalRead(left_pin);
+    extreme_left = digitalRead(extreme_left_pin);
+  }
+  Motor_Right->run(RELEASE);
+  Motor_Left->run(RELEASE); 
+}
+
 void handleLEDs(){
   unsigned long currentMillis = millis();
 
@@ -323,17 +908,77 @@ void handleLEDs(){
 }
 
 void detect_object() {
-
+  int distance = sensor.getDistance();
+  if (distance < THRESHOLD) {
+    object_detected = true;
+    tof_active = false;
+    Motor_Right->run(RELEASE);
+    Motor_Left->run(RELEASE);
+  }
+  else{
+    object_detected = false;
+  }
 }
 
 void collect_object() {
+  moveServo(ACTIVATED_POSITION);
+  collected = true;
+  delay(200);
+  Motor_Right->setSpeed(255);
+  Motor_Left->setSpeed(255);
+  Motor_Right->run(FORWARD);
+  Motor_Left->run(FORWARD);
 
 }
 
-void depoit_object() {
-
+void deposit_object() {
+  moveServo(DEFAULT_POSITION);
+  collected = false;
+  digitalWrite(red_led_pin, LOW);
+  digitalWrite(green_led_pin, LOW);
 }
 
 void check_mag(){
-
+  if(digitalRead(mag_sensor_1) == 1 || digitalRead(mag_sensor_2)==1) {
+    isMagnetic = true;
+    digitalWrite(red_led_pin, HIGH);
+    digitalWrite(green_led_pin, LOW);
+  }
+  else{
+    isMagnetic = false;
+    digitalWrite(green_led_pin, HIGH);
+    digitalWrite(red_led_pin, LOW);
+  }
 }
+
+void servo_close(){
+  moveServo(ACTIVATED_POSITION);
+}
+
+void servo_open(){
+  moveServo(DEFAULT_POSITION);
+}
+
+void moveServo(int targetPosition) {
+ isRotating = true;
+ int step = (targetPosition > currentPosition) ? 10 : -10;
+ 
+ while (currentPosition != targetPosition && isRotating) {
+   currentPosition += step;
+   myservo.write(currentPosition);
+   delay(15);
+
+   // Check if the condition has changed mid-movement
+   int newDistance = sensor.getDistance();
+   if ((newDistance < THRESHOLD && targetPosition == DEFAULT_POSITION) ||
+       (newDistance >= THRESHOLD && targetPosition == ACTIVATED_POSITION)) {
+     isRotating = false;
+   }
+ }
+ isRotating = false;
+}
+
+
+
+// Debounce logic for left turn
+      
