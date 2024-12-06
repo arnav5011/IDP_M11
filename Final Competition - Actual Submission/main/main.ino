@@ -24,9 +24,9 @@ int mag_sensor_1 = 9;
 int mag_sensor_2 = 10;
 
 //LED Pins
-int blue_led_pin = 6;  // Blue LED (motion)
-int red_led_pin = 7;   // Red LED (magnetic object)
-int green_led_pin = 8; // Green LED (non-magnetic object)
+int blue_led_pin = 6;  //Blue LED (motion)
+int red_led_pin = 7;   //Red LED (magnetic object)
+int green_led_pin = 8; //Green LED (non-magnetic object)
 
 //Pin numbers for motors
 int left_motor_pin = 2;
@@ -34,7 +34,7 @@ int right_motor_pin = 1;
 
 //Servo criteria
 int SERVO_PIN = 12;
-const int THRESHOLD = 90; // Threshold for Time of Flight for the servo to turn
+const int THRESHOLD = 90; //Threshold for Time of Flight for the servo to turn
 const int DEFAULT_POSITION = 0;
 const int ACTIVATED_POSITION = 85; //Angle the motor rotates by
 
@@ -147,7 +147,7 @@ void move(){
   int left = digitalRead(left_pin);
   int extreme_left = digitalRead(extreme_left_pin);
 
-  line_follow(extreme_right, right, left, extreme_left);
+  line_follow(extreme_right, right, left, extreme_left); //Keep following the line
 
   //if(!object_detected){detect_object();} We could not test the object detection and pickup in the final test.
 
@@ -246,12 +246,11 @@ void move(){
       delay(250);
 
       //Release objects
-      Motor_Right->run(RELEASE);
-      Motor_Left->run(RELEASE);
-      deposit_object();
-
-      Motor_Right->run(BACKWARD);
-      Motor_Left->run(BACKWARD);
+      //Motor_Right->run(RELEASE);
+      //Motor_Left->run(RELEASE);
+      //deposit_object();
+      //Motor_Right->run(BACKWARD);
+      //Motor_Left->run(BACKWARD);
       
       while(!(extreme_right == 1 && right == 1 && left == 1 && extreme_left == 1)){ //Keep going back until reaches a split
         delay(10);
